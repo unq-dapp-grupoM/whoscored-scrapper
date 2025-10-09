@@ -10,11 +10,6 @@ COPY . .
 # Given permissions to gradlew
 RUN chmod +x ./gradlew
 
-# Install Node.js and Playwright with browser dependencies
-RUN apt-get update && apt-get install -y nodejs npm && \
-    npm install -g npx && \
-    npx playwright@1.45.0 install --with-deps chromium
-
 # Build the application (requires Maven or Gradle)
 RUN ./gradlew clean build -x test
 
