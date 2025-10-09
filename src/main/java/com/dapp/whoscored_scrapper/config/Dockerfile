@@ -1,22 +1,32 @@
-# Usa una imagen base que ya contiene una versión de Java (JDK 21)
-FROM eclipse-temurin:21-jdk-jammy
+# --- Etapa 1: Build ---
+# Usamos una imagen que ya tiene Gradle y JDK 21
+FROM gradle:8.5.0-jdk21 AS builder
 
 # Establece el directorio de trabajo dentro del contenedor
+WORKDIR /home/gradle/src
+
+# Copia todo el proyecto al contenedor
+COPY . .
+
+# Da permisos de ejecución al script de gradle
+RUN chmod +x ./gradlew
+
+# Instala Node.js y luego Playwright con sus dependencias de navegador
+RUN apt-get update && apt-get install -y nodejs npm && \
+    npm install -g npx && \
+    npx playwright@1.45.0 install --with-deps chromium
+
+# Construye la aplicación. El test se salta para acelerar el build en el pipeline.
+RUN ./gradlew build -x test
+
+# --- Etapa 2: Run ---
+# Usamos una imagen ligera que solo tiene el Java Runtime Environment (JRE)
+FROM eclipse-temurin:21-jre-jammy
+
 WORKDIR /app
 
-# Instala Node.js y npm para poder usar 'npx' para Playwright
-# El '&&' encadena comandos y 'apt-get clean' limpia la caché para mantener la imagen pequeña
-RUN apt-get update && \
-    apt-get install -y nodejs npm && \
-    apt-get clean
+# Copia el JAR construido de la etapa anterior
+COPY --from=builder /home/gradle/src/build/libs/*.jar app.jar
 
-# Copia los archivos de la aplicación al contenedor
-# Copiamos primero los archivos de build para aprovechar el cache de Docker
-COPY build.gradle settings.gradle gradlew gradlew.bat ./
-COPY gradle ./gradle
-
-# Copia el resto del código fuente de la aplicación
-COPY src ./src
-
-# Expone el puerto en el que correrá la aplicación (Render usará la variable de entorno)
-EXPOSE 10000
+# Comando para ejecutar la aplicación
+ENTRYPOINT ["java", "-jar", "app.jar"]
