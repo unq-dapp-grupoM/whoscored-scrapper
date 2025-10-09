@@ -1,32 +1,34 @@
-# --- Etapa 1: Build ---
-# Usamos una imagen que ya tiene Gradle y JDK 21
+# Stage 1: Build the application
 FROM gradle:8.5.0-jdk21 AS builder
 
-# Establece el directorio de trabajo dentro del contenedor
-WORKDIR /home/gradle/src
+# Set the working directory
+WORKDIR /app
 
-# Copia todo el proyecto al contenedor
+# Copy the application code
 COPY . .
 
-# Da permisos de ejecución al script de gradle
+# Given permissions to gradlew
 RUN chmod +x ./gradlew
 
-# Instala Node.js y luego Playwright con sus dependencias de navegador
+# Install Node.js and Playwright with browser dependencies
 RUN apt-get update && apt-get install -y nodejs npm && \
     npm install -g npx && \
     npx playwright@1.45.0 install --with-deps chromium
 
-# Construye la aplicación. El test se salta para acelerar el build en el pipeline.
-RUN ./gradlew build -x test
+# Build the application (requires Maven or Gradle)
+RUN ./gradlew clean build -x test
 
-# --- Etapa 2: Run ---
-# Usamos una imagen ligera que solo tiene el Java Runtime Environment (JRE)
-FROM eclipse-temurin:21-jre-jammy
+# Stage 2: Run the application
+FROM eclipse-temurin:21-jre
 
+# Set the working directory
 WORKDIR /app
 
-# Copia el JAR construido de la etapa anterior
-COPY --from=builder /home/gradle/src/build/libs/*.jar app.jar
+# Copy the JAR file from the builder stage
+COPY --from=builder /app/target/*.jar app.jar
 
-# Comando para ejecutar la aplicación
+# Expose the port the app will run on
+EXPOSE 8080
+
+# Command to run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
