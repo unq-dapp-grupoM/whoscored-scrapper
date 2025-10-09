@@ -1,20 +1,15 @@
 services:
   - type: web
     name: whoscored-scrapper
-    env: java
+    runtime: docker # Le decimos a Render que use Docker
     plan: free # El plan gratuito es ideal para empezar.
     region: oregon # Puedes elegir la región más cercana a ti.
+    dockerfilePath: ./Dockerfile # Especifica la ruta a tu Dockerfile
     healthCheckPath: /swagger-ui/index.html
     envVars:
-      - key: JAVA_VERSION
-        value: 21
       - key: SERVER_PORT
         value: 10000 # Render espera que el servicio se ejecute en el puerto 10000 por defecto.
-    buildCommand: |
-      chmod +x ./gradlew
-      ./gradlew build
-      # Instala Playwright y sus dependencias de navegador necesarias para el entorno Linux de Render.
-      # El comando 'npx' es una forma de ejecutar paquetes de node sin instalarlos globalmente.
-      # Render tiene Node.js disponible en su entorno de construcción.
-      npx playwright@1.45.0 install --with-deps chromium
-    startCommand: java -jar build/libs/whoscored-scrapper-0.0.1-SNAPSHOT.jar
+    # Los comandos de build y start se eliminan, ya que ahora están definidos
+    # dentro de nuestro Dockerfile multi-etapa.
+    # buildCommand: ""
+    # startCommand: ""
