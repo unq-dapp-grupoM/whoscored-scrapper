@@ -11,6 +11,7 @@ services:
       - key: SERVER_PORT
         value: 10000 # Render espera que el servicio se ejecute en el puerto 10000 por defecto.
     buildCommand: |
+      chmod +x ./gradlew
       ./gradlew build
       # Instala Playwright y sus dependencias de navegador necesarias para el entorno Linux de Render.
       # El comando 'npx' es una forma de ejecutar paquetes de node sin instalarlos globalmente.
