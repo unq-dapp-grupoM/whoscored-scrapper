@@ -60,7 +60,26 @@ RUN apt-get update && \
         libgtk-3-0t64 \
         libpangocairo-1.0-0 \
         libcairo-gobject2 \
-        libgdk-pixbuf-2.0-0 && \
+        libgdk-pixbuf-2.0-0 \
+        libgstreamer1.0-0 \
+        libatomic1 \
+        libxslt1.1 \
+        libwoff1 \
+        libvpx9 \
+        libevent-2.1-7t64 \
+        libopus0 \
+        libgstreamer-plugins-base1.0-0 \
+        libgstreamer-gl1.0-0 \
+        libgstreamer-plugins-bad1.0-0 \
+        libwebpdemux2 \
+        libharfbuzz-icu0 \
+        libenchant-2-2 \
+        libsecret-1-0 \
+        libhyphen0 \
+        libmanette-0.2-0 \
+        libflite1 \
+        libgles2 \
+        gstreamer1.0-libav && \
     # Limpia el cache de APT para mantener la imagen pequeña
     rm -rf /var/lib/apt/lists/*
 
