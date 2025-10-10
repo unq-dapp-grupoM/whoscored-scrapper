@@ -31,6 +31,34 @@ RUN ./gradlew clean build -x test
 # Stage 2: Run the application
 FROM eclipse-temurin:21-jre
 
+# 1. ACTUALIZAR Y AÑADIR LAS LIBRERÍAS DE SISTEMA OPERATIVO DE PLAYWRIGHT
+# El JRE es basado en Debian/Ubuntu (por eso funciona apt-get).
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libglib2.0-0t64 \
+        libnss3 \
+        libnspr4 \
+        libdbus-1-3 \
+        libatk1.0-0t64 \
+        libatk-bridge2.0-0t64 \
+        libcups2t64 \
+        libdrm2 \
+        libatspi2.0-0t64 \
+        libx11-6 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libxcb1 \
+        libxkbcommon0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libasound2t64 && \
+    # Limpia el cache de APT para mantener la imagen pequeña
+    rm -rf /var/lib/apt/lists/*
+
 # Set the working directory
 WORKDIR /app
 
