@@ -55,7 +55,12 @@ RUN apt-get update && \
         libxkbcommon0 \
         libpango-1.0-0 \
         libcairo2 \
-        libasound2t64 && \
+        libasound2t64 \
+        libxcursor1 \
+        libgtk-3-0t64 \
+        libpangocairo-1.0-0 \
+        libcairo-gobject2 \
+        libgdk-pixbuf-2.0-0 && \
     # Limpia el cache de APT para mantener la imagen pequeña
     rm -rf /var/lib/apt/lists/*
 
