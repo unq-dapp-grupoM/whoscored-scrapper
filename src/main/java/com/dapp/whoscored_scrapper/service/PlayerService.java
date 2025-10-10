@@ -29,7 +29,7 @@ public class PlayerService extends AbstractWebService {
                     .locator("div.search-result:has(h2:text('Jugadores:')) >> tbody tr:nth-child(2) >> a")
                     .first();
             try {
-                firstResult.waitFor(new Locator.WaitForOptions().setTimeout(15000));
+                firstResult.waitFor(new Locator.WaitForOptions().setTimeout(60000));
             } catch (Exception e) {
                 log.error("Player '{}' not found in search results or timed out.", playerName);
                 throw new IllegalArgumentException("Player with name '" + playerName + "' not found.");
@@ -60,7 +60,7 @@ public class PlayerService extends AbstractWebService {
 
         // Get player info container
         Locator playerInfoContainer = page.locator("div.col12-lg-10.col12-m-10.col12-s-9.col12-xs-8");
-        playerInfoContainer.waitFor(new Locator.WaitForOptions().setTimeout(10000));
+        playerInfoContainer.waitFor(new Locator.WaitForOptions().setTimeout(60000));
 
         // Set player basic info
         player.setName(extractValueFromPlayerInfo(playerInfoContainer, "Nombre"));
@@ -105,7 +105,7 @@ public class PlayerService extends AbstractWebService {
         Locator statsTableBody = page.locator("tbody#player-table-statistics-body");
         try {
             // Wait for the element to be attached to the DOM, not necessarily visible.
-            statsTableBody.waitFor(new Locator.WaitForOptions().setTimeout(10000));
+            statsTableBody.waitFor(new Locator.WaitForOptions().setTimeout(60000));
         } catch (Exception e) {
             log.warn("Match stats table body not found. Returning empty list.");
             return matchStats; // Return empty list if table body doesn't even exist.
