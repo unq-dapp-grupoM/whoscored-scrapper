@@ -11,16 +11,15 @@ COPY . .
 RUN chmod +x ./gradlew
 
 # Install Playwright dependencies
-RUN apt-get install -y \
-    libglib2.0-0 \
+RUN apt-get install libglib2.0-0t64 \
     libnss3 \
     libnspr4 \
     libdbus-1-3 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
+    libatk1.0-0t64 \
+    libatk-bridge2.0-0t64 \
+    libcups2t64 \
     libdrm2 \
-    libatspi2.0-0 \
+    libatspi2.0-0t64 \
     libx11-6 \
     libxcomposite1 \
     libxdamage1 \
@@ -32,7 +31,7 @@ RUN apt-get install -y \
     libxkbcommon0 \
     libpango-1.0-0 \
     libcairo2 \
-    libasound2
+    libasound2t64
 
 # Build the application (requires Maven or Gradle)
 RUN ./gradlew clean build -x test
