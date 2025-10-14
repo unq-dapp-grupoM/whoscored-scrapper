@@ -46,7 +46,7 @@ public abstract class AbstractWebService {
         try {
             // Using getByRole is more robust for finding the cookie button.
             Locator acceptButton = page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Aceptar todo"));
-            acceptButton.waitFor(new Locator.WaitForOptions().setTimeout(60000)); // Increase wait time
+            acceptButton.waitFor(new Locator.WaitForOptions().setTimeout(7000)); // Increase wait time
             acceptButton.click();
             log.info("Cookie banner accepted.");
         } catch (Exception e) {
@@ -59,7 +59,6 @@ public abstract class AbstractWebService {
         log.info("Searching for: {}", searchTerm);
         // Using getByPlaceholder is more robust than a generic CSS selector.
         Locator searchInput = page.getByPlaceholder("Buscar campeonatos, equipos y jugadores");
-        searchInput.waitFor(new Locator.WaitForOptions().setTimeout(60000)); // Increase wait time
         // Click first to ensure the input has focus.
         searchInput.click();
         searchInput.fill(searchTerm);
