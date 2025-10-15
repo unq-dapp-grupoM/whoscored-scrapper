@@ -6,21 +6,16 @@ COPY . .
 RUN chmod +x ./gradlew
 RUN ./gradlew clean build -x test
 
-# Stage 2: Run - Volver a la imagen base que SÍ funciona
-FROM eclipse-temurin:21-jre
+# Stage 2: Run - Usar imagen de Playwright con Java
+FROM mcr.microsoft.com/playwright:v1.56.0-jammy
 
-# Instalar solo las librerías mínimas necesarias para Chromium
+# Instalar Java en la imagen de Playwright (que ya tiene todas las dependencias)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-        libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 \
-        libgbm1 libxshmfence1 libasound2t64 curl && \
+    apt-get install -y --no-install-recommends openjdk-21-jre-headless && \
     rm -rf /var/lib/apt/lists/*
 
-# Instalar solo Chromium con Playwright
-RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
-    npx playwright install chromium
+# Limpiar browsers que no necesitamos, mantener solo Chromium
+RUN rm -rf /root/.cache/ms-playwright/firefox* /root/.cache/ms-playwright/webkit*
 
 WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
