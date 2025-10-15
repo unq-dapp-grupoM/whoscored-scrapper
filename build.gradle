@@ -48,3 +48,10 @@ tasks.named('test') {
 bootJar {
 	mainClass = 'com.dapp.whoscored_scrapper.WhoscoredScrapperApplication'
 }
+
+configurations {
+    all {
+        exclude group: 'com.microsoft.playwright', module: 'playwright-firefox'
+        exclude group: 'com.microsoft.playwright', module: 'playwright-webkit'
+    }
+}
