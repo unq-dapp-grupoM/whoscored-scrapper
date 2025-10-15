@@ -43,10 +43,12 @@ public abstract class AbstractWebService {
                                 "--no-first-run",
                                 "--disable-default-apps",
                                 "--disable-popup-blocking",
-                                "--disable-hang-monitor"
+                                "--disable-hang-monitor",
+                                "--disable-background-timer-throttling",
+                                "--disable-renderer-backgrounding",
+                                "--disable-backgrounding-occluded-windows"
                         )));
 
-        // Contexto con más opciones de stealth
         BrowserContext context = browser.newContext(new Browser.NewContextOptions()
                 .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 .setViewportSize(1920, 1080)
@@ -59,59 +61,152 @@ public abstract class AbstractWebService {
                         "Accept-Language", "es-ES,es;q=0.9,en;q=0.8",
                         "Accept-Encoding", "gzip, deflate, br",
                         "Cache-Control", "no-cache",
-                        "DNT", "1"
+                        "DNT", "1",
+                        "Sec-Fetch-Dest", "document",
+                        "Sec-Fetch-Mode", "navigate",
+                        "Sec-Fetch-Site", "none",
+                        "Upgrade-Insecure-Requests", "1"
                 )));
 
         Page page = context.newPage();
+        page.setDefaultTimeout(120000); // 2 minutos
+        page.setDefaultNavigationTimeout(120000);
 
-        // Al inicio de createPage, después de crear el context
-        page.onResponse(response -> {
-            if (response.status() >= 400) {
-                log.warn("HTTP {} for: {}", response.status(), response.url());
-            }
-        });
-        
-        page.onRequestFailed(request -> {
-            log.warn("Request failed: {} {}", request.failure(), request.url());
-        });
-        
-        // Configurar timeouts
-        page.setDefaultTimeout(60000);
-        page.setDefaultNavigationTimeout(60000);
-
-        // Navegar con múltiples estrategias
         try {
             log.info("Navigating to: {}", BASE_URL);
 
-            // Opción 1: Intentar navegación simple primero
+            // Navegar y manejar Cloudflare
             page.navigate(BASE_URL, new Page.NavigateOptions()
-                    .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
-                    .setTimeout(45000));
+                    .setWaitUntil(WaitUntilState.NETWORKIDLE)
+                    .setTimeout(90000));
 
-            // Esperar un poco más
-            page.waitForTimeout(3000);
-
-            // Verificar si la página cargó
+            // Verificar si estamos en Cloudflare
             String title = page.title();
-            log.info("Page title: {}", title);
+            log.info("Initial page title: {}", title);
 
-            // Intentar diferentes selectores para cookies
+            if (isCloudflarePage(page)) {
+                log.warn("Cloudflare challenge detected, attempting to bypass...");
+                boolean bypassed = handleCloudflareChallenge(page);
+
+                if (!bypassed) {
+                    throw new RuntimeException("Cloudflare challenge could not be bypassed");
+                }
+            }
+
+            // Esperar a que la página real cargue
+            page.waitForLoadState(LoadState.NETWORKIDLE, new Page.WaitForLoadStateOptions().setTimeout(30000));
+
+            // Manejar cookies después de pasar Cloudflare
             handleCookiesWithMultipleSelectors(page);
 
-        } catch (Exception e) {
-            log.warn("First navigation attempt failed: {}", e.getMessage());
+            log.info("Successfully bypassed Cloudflare and loaded WhoScored");
 
-            // Opción 2: Reintentar con load state diferente
-            try {
-                page.waitForLoadState(LoadState.LOAD, new Page.WaitForLoadStateOptions().setTimeout(30000));
-                handleCookiesWithMultipleSelectors(page);
-            } catch (Exception e2) {
-                log.warn("Second attempt also failed: {}", e2.getMessage());
-                // Continuar sin cookies aceptadas
-            }
+        } catch (Exception e) {
+            log.error("Failed to load page: {}", e.getMessage());
+            // No cerrar el browser inmediatamente, podría estar en medio de un challenge
+            throw new RuntimeException("Failed to load WhoScored: " + e.getMessage(), e);
         }
 
         return page;
+    }
+
+    private boolean isCloudflarePage(Page page) {
+        try {
+            String title = page.title();
+            String url = page.url();
+
+            return title.contains("Cloudflare") || 
+                   title.contains("Attention Required") ||
+                   title.contains("Just a moment") ||
+                   url.contains("challenge") ||
+                   page.locator("div#cf-content").isVisible() ||
+                   page.locator("div.cf-browser-verification").isVisible() ||
+                   page.locator("[id*='challenge']").isVisible();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean handleCloudflareChallenge(Page page) {
+        try {
+            log.info("Waiting for Cloudflare challenge to resolve...");
+
+            // Estrategia 1: Esperar a que Cloudflare redirija automáticamente
+            try {
+                page.waitForURL("**://es.whoscored.com/**", 
+                    new Page.WaitForURLOptions()
+                        .setTimeout(120000)
+                        .setWaitUntil(WaitUntilState.NETWORKIDLE));
+                log.info("Cloudflare auto-redirect successful");
+                return true;
+            } catch (Exception e) {
+                log.debug("Auto-redirect failed: {}", e.getMessage());
+            }
+
+            // Estrategia 2: Esperar a que el título cambie
+            try {
+                page.waitForFunction(
+                    "() => !document.title.includes('Cloudflare') && " +
+                    "!document.title.includes('Attention Required') && " +
+                    "!document.title.includes('Just a moment')",
+                    new Page.WaitForFunctionOptions().setTimeout(120000)
+                );
+                log.info("Cloudflare title change detected");
+                return true;
+            } catch (Exception e) {
+                log.debug("Title change wait failed: {}", e.getMessage());
+            }
+
+            // Estrategia 3: Intentar interactuar con elementos de Cloudflare
+            try {
+                // Buscar y hacer click en el botón de verificación de Cloudflare
+                String[] challengeSelectors = {
+                    "input[type='submit'][value*='Verify']",
+                    "button[type*='submit']",
+                    ".btn-primary",
+                    "#challenge-form input[type='submit']",
+                    "a[role='button']",
+                    "[data-ray*='submit']"
+                };
+
+                for (String selector : challengeSelectors) {
+                    try {
+                        Locator button = page.locator(selector).first();
+                        if (button.isVisible(new Locator.IsVisibleOptions())) {
+                            log.info("Clicking Cloudflare challenge button: {}", selector);
+                            button.click(new Locator.ClickOptions().setTimeout(10000));
+
+                            // Esperar después del click
+                            page.waitForTimeout(5000);
+                            page.waitForLoadState(LoadState.NETWORKIDLE, new Page.WaitForLoadStateOptions().setTimeout(30000));
+                            return true;
+                        }
+                    } catch (Exception e) {
+                        log.debug("Challenge selector {} failed: {}", selector, e.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Challenge interaction failed: {}", e.getMessage());
+            }
+
+            // Estrategia 4: Espera simple con timeout extendido
+            log.info("Waiting extended time for Cloudflare...");
+            page.waitForTimeout(30000); // 30 segundos extra
+
+            // Verificar si finalmente cargó WhoScored
+            String finalTitle = page.title();
+            if (!isCloudflarePage(page) && finalTitle.contains("WhoScored")) {
+                log.info("Cloudflare resolved after extended wait");
+                return true;
+            }
+
+            log.error("All Cloudflare bypass strategies failed");
+            return false;
+
+        } catch (Exception e) {
+            log.error("Error handling Cloudflare challenge: {}", e.getMessage());
+            return false;
+        }
     }
 
     private void handleCookiesWithMultipleSelectors(Page page) {
