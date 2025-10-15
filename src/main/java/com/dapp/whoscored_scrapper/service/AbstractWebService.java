@@ -210,16 +210,23 @@ public abstract class AbstractWebService {
     }
 
     private void handleCookiesWithMultipleSelectors(Page page) {
-        // Múltiples estrategias para encontrar el botón de cookies
+        // MÁS selectores para cookies - WhoScored podría usar diferentes sistemas
         String[] cookieSelectors = {
             "button:has-text('Aceptar todo')",
             "button:has-text('Accept All')", 
             "button:has-text('Aceptar')",
+            "button:has-text('Accept')",
             "button[aria-label*='cookie']",
             "button[class*='cookie']",
             ".cookie-banner button",
             "#cookie-banner button",
-            "[data-testid*='cookie'] button"
+            "[data-testid*='cookie'] button",
+            ".qc-cmp2-summary-buttons button[mode='primary']",
+            "#onetrust-accept-btn-handler",
+            ".ot-sdk-row button:has-text('Aceptar')",
+            "button.js-cookie-notice-accept",  // Selector común
+            "a.cookie-accept",  // A veces es un link
+            "div.cookie button" // Selector genérico
         };
 
         for (String selector : cookieSelectors) {
@@ -240,17 +247,25 @@ public abstract class AbstractWebService {
 
     protected void performSearch(Page page, String searchTerm) {
         log.info("Searching for: {}", searchTerm);
-        
+
         try {
-            // Múltiples estrategias para encontrar el campo de búsqueda
+            // Esperar un poco más después de pasar Cloudflare
+            page.waitForTimeout(3000);
+
             Locator searchInput = findSearchInput(page);
+
+            if (searchInput == null) {
+                // Último intento: buscar cualquier input que pueda ser de búsqueda
+                log.warn("Trying fallback search strategy...");
+                searchInput = findAnyInputForSearch(page);
+            }
 
             if (searchInput == null) {
                 throw new RuntimeException("Search input not found");
             }
 
-            // Limpiar y escribir
-            searchInput.click(new Locator.ClickOptions().setTimeout(10000));
+            // Limpiar y escribir con más delays
+            searchInput.click(new Locator.ClickOptions().setTimeout(15000));
             page.waitForTimeout(1000);
             searchInput.fill("");
             page.waitForTimeout(500);
@@ -272,15 +287,72 @@ public abstract class AbstractWebService {
         }
     }
 
+    private Locator findAnyInputForSearch(Page page) {
+        // Estrategia de fallback: buscar cualquier input que parezca de búsqueda
+        try {
+            Locator allInputs = page.locator("input[type='text'], input[type='search']");
+            int inputCount = allInputs.count();
+            log.info("Found {} text/search inputs on page", inputCount);
+            
+            for (int i = 0; i < inputCount; i++) {
+                Locator input = allInputs.nth(i);
+                try {
+                    if (input.isVisible() && input.isEnabled()) {
+                        String placeholder = input.getAttribute("placeholder");
+                        String name = input.getAttribute("name");
+                        String id = input.getAttribute("id");
+                        
+                        // Verificar si alguno de los atributos contiene "search" o "buscar"
+                        boolean isSearchInput = false;
+                        
+                        if (placeholder != null && 
+                            (placeholder.toLowerCase().contains("search") || 
+                             placeholder.toLowerCase().contains("buscar"))) {
+                            isSearchInput = true;
+                        }
+                        
+                        if (name != null && name.toLowerCase().contains("search")) {
+                            isSearchInput = true;
+                        }
+                        
+                        if (id != null && id.toLowerCase().contains("search")) {
+                            isSearchInput = true;
+                        }
+                        
+                        if (isSearchInput) {
+                            log.info("Found potential search input: placeholder='{}', name='{}', id='{}'", 
+                                    placeholder, name, id);
+                            return input;
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("Input {} check failed: {}", i, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Fallback search strategy failed: {}", e.getMessage());
+        }
+        return null;
+    }
+
     private Locator findSearchInput(Page page) {
+        // MÁS selectores para el campo de búsqueda
         String[] searchSelectors = {
             "input[placeholder*='Buscar campeonatos']",
             "input[placeholder*='Search']",
             "input[name*='search']",
             "input[type='search']",
+            "input[class*='search']",
             ".search-input",
             "#search-input",
-            "input[class*='search']"
+            "input#search",
+            "[data-testid*='search']",
+            "form[role='search'] input",
+            "input[aria-label*='search']",
+            "header input[type='text']",  // Buscar en el header
+            "nav input",  // Buscar en la navegación
+            ".header-search input",
+            "#header-search input"
         };
 
         for (String selector : searchSelectors) {
@@ -295,8 +367,58 @@ public abstract class AbstractWebService {
             }
         }
 
+        // DIAGNÓSTICO: Ver qué elementos hay en la página
+        logDiagnosticInfo(page);
+
         log.error("No search input found with any selector");
         return null;
+    }
+
+    private void logDiagnosticInfo(Page page) {
+        try {
+            log.info("=== PAGE DIAGNOSTIC INFO ===");
+            log.info("Page URL: {}", page.url());
+            log.info("Page title: {}", page.title());
+
+            // Verificar elementos comunes en WhoScored
+            String[] diagnosticSelectors = {
+                "header", "nav", "main", ".header", "#header", 
+                "input", "button", "form", "[role='search']"
+            };
+
+            for (String selector : diagnosticSelectors) {
+                try {
+                    int count = page.locator(selector).count();
+                    if (count > 0) {
+                        log.info("Found {} elements with selector: {}", count, selector);
+                    }
+                } catch (Exception e) {
+                    log.debug("Diagnostic selector {} failed: {}", selector, e.getMessage());
+                }
+            }
+
+            // Verificar si hay algún formulario
+            try {
+                Locator forms = page.locator("form");
+                int formCount = forms.count();
+                log.info("Total forms on page: {}", formCount);
+
+                for (int i = 0; i < formCount; i++) {
+                    Locator form = forms.nth(i);
+                    String formHtml = form.innerHTML();
+                    if (formHtml.contains("search") || formHtml.contains("buscar")) {
+                        log.info("Form {} might be search form: {}", i, formHtml.substring(0, Math.min(100, formHtml.length())));
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Form diagnostic failed: {}", e.getMessage());
+            }
+
+            log.info("=== END DIAGNOSTIC ===");
+
+        } catch (Exception e) {
+            log.error("Diagnostic failed: {}", e.getMessage());
+        }
     }
 
     protected String extractText(Page page, String selector) {
