@@ -21,15 +21,21 @@ public abstract class AbstractWebService {
     protected static final String NOT_FOUND = "Not found";
 
     protected Page createPage(Playwright playwright) {
-        // Configuration to make headless mode less detectable.
+        // Configurar Playwright para usar solo Chromium
+        System.setProperty("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1"); // Evitar descargas automáticas
+        
         Browser browser = playwright.chromium()
                 .launch(new BrowserType.LaunchOptions()
-                        .setHeadless(true) // Run in headless mode
+                        .setHeadless(true)
                         .setArgs(List.of(
-                                "--no-sandbox", // Necessary for Render
-                                "--disable-setuid-sandbox", // Necessary for Render
-                                "--disable-blink-features=AutomationControlled" // Hide automation
-                        ))); // Hide automation
+                                "--no-sandbox",
+                                "--disable-setuid-sandbox",
+                                "--disable-blink-features=AutomationControlled",
+                                "--disable-dev-shm-usage", // Importante para entornos containerizados
+                                "--disable-gpu", // Para headless
+                                "--single-process", // Para reducir uso de memoria
+                                "--no-zygote"
+                        )));
 
         // Create a browser context with options that simulate a real user.
         BrowserContext context = browser.newContext(new Browser.NewContextOptions()
