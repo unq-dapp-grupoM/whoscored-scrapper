@@ -7,7 +7,7 @@ RUN chmod +x ./gradlew
 RUN ./gradlew clean build -x test
 
 # Stage 2: Run - Usar imagen de Playwright con Java
-FROM mcr.microsoft.com/playwright:v1.56.0-jammy
+FROM mcr.microsoft.com/playwright:v1.55.0-jammy
 
 # Instalar Java en la imagen de Playwright (que ya tiene todas las dependencias)
 RUN apt-get update && \

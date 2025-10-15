@@ -26,7 +26,7 @@ dependencies {
 
 	// Swagger / OpenAPI 3 & Web Scraping
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
-	implementation 'com.microsoft.playwright:playwright:1.45.0'
+	implementation 'com.microsoft.playwright:playwright:1.55.0'
 
 	// Herramientas y Base de Datos
 	compileOnly 'org.projectlombok:lombok'
