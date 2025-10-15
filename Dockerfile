@@ -9,9 +9,8 @@ RUN ./gradlew clean build -x test
 # Stage 2: Run la aplicación  
 FROM mcr.microsoft.com/playwright:v1.56.0-jammy
 
-# Limpiar cache y mantener solo Chromium
-RUN rm -rf /root/.cache/ms-playwright/firefox* /root/.cache/ms-playwright/webkit* && \
-    npx playwright install chromium
+# Usar el chromium que ya viene preinstalado y limpiar los demás
+RUN rm -rf /root/.cache/ms-playwright/firefox* /root/.cache/ms-playwright/webkit*
 
 WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
